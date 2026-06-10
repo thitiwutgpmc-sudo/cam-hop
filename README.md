@@ -1,1 +1,348 @@
-# cam-hop
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAM Server Hop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f13; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  header { background: #17171f; border-bottom: 1px solid #2a2a38; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-size: 1rem; font-weight: 600; color: #fff; letter-spacing: 0.05em; }
+  .logo span { color: #7c6ff7; }
+  .status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .hero { padding: 2rem 1.5rem 1rem; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; font-weight: 600; color: #fff; margin-bottom: 0.25rem; }
+  .subtitle { font-size: 0.85rem; color: #888; }
+
+  .boss-box { background: #17171f; border: 1px solid #2a2a38; border-radius: 12px; padding: 1rem 1.5rem; margin: 1rem auto; max-width: 900px; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+  .boss-label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .boss-timer { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .timer-hunting { color: #4ade80; }
+  .timer-waiting { color: #7c6ff7; }
+  .phase-bar-wrap { margin-top: 8px; width: 220px; }
+  .phase-bar-bg { background: #2a2a38; border-radius: 4px; height: 4px; overflow: hidden; }
+  .phase-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s linear; }
+  .phase-label { font-size: 0.75rem; margin-top: 5px; }
+  .phase-hunting { color: #4ade80; }
+  .phase-waiting { color: #888; }
+  .auto-hop-row { display: flex; align-items: center; gap: 10px; margin-top: 0.65rem; }
+  .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; inset: 0; background: #2a2a38; border-radius: 22px; cursor: pointer; transition: background 0.2s; }
+  .toggle-slider:before { content: ""; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #888; border-radius: 50%; transition: transform 0.2s, background 0.2s; }
+  .toggle input:checked + .toggle-slider { background: #7c6ff7; }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: #fff; }
+  .auto-hop-label { font-size: 0.85rem; color: #aaa; }
+  .auto-hop-status { font-weight: 600; }
+  .next-hop-row { font-size: 0.78rem; color: #555; margin-top: 4px; }
+  .next-hop-row span { color: #4ade80; font-weight: 500; }
+  .random-btn { display: flex; align-items: center; gap: 10px; background: linear-gradient(90deg, #f43f8e, #f97316); border: none; border-radius: 10px; color: #fff; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.7rem 1.5rem; cursor: pointer; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
+  .random-btn:hover { opacity: 0.9; }
+  .random-btn:active { transform: scale(0.97); }
+  .random-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .visited-badge { font-size: 0.75rem; color: #666; }
+  .controls { max-width: 900px; margin: 0 auto 1rem; padding: 0 1.5rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .filter-btn { background: #17171f; border: 1px solid #2a2a38; color: #aaa; padding: 5px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { border-color: #7c6ff7; color: #fff; }
+  .filter-btn.active { background: #7c6ff7; border-color: #7c6ff7; color: #fff; }
+  .sort-btn { background: #17171f; border: 1px solid #2a2a38; color: #aaa; padding: 5px 14px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; }
+  .sort-btn:hover { border-color: #7c6ff7; color: #fff; }
+  .refresh-btn { margin-left: auto; background: transparent; border: 1px solid #2a2a38; color: #888; padding: 5px 12px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; }
+  .refresh-btn:hover { border-color: #7c6ff7; color: #fff; }
+  .server-list { max-width: 900px; margin: 0 auto; padding: 0 1.5rem 3rem; display: flex; flex-direction: column; gap: 6px; }
+  .server-row { background: #17171f; border: 1px solid #2a2a38; border-radius: 10px; padding: 0.75rem 1.1rem; display: flex; align-items: center; gap: 12px; transition: border-color 0.15s; }
+  .server-row:hover { border-color: #7c6ff7; }
+  .server-row.visited { opacity: 0.4; }
+  .visited-tag { display: none; font-size: 0.7rem; color: #555; background: #1e1e28; border: 1px solid #2a2a38; border-radius: 4px; padding: 1px 6px; }
+  .server-row.visited .visited-tag { display: inline-block; }
+  .server-bar-wrap { flex: 1; }
+  .server-bar-bg { background: #2a2a38; border-radius: 4px; height: 6px; overflow: hidden; }
+  .server-bar-fill { height: 100%; border-radius: 4px; }
+  .bar-empty { background: #4ade80; }
+  .bar-open { background: #7c6ff7; }
+  .bar-busy { background: #f59e0b; }
+  .bar-full { background: #f87171; }
+  .server-count { font-size: 0.85rem; color: #aaa; min-width: 60px; text-align: right; }
+  .server-count strong { color: #fff; }
+  .badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; min-width: 48px; text-align: center; }
+  .badge-empty { background: #052814; color: #4ade80; }
+  .badge-open { background: #1a1640; color: #7c6ff7; }
+  .badge-busy { background: #2d1f00; color: #f59e0b; }
+  .badge-full { background: #2d0a0a; color: #f87171; }
+  .join-btn { background: #7c6ff7; border: none; color: #fff; padding: 5px 14px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; }
+  .join-btn:hover { background: #6355e8; }
+  .loading { text-align: center; padding: 3rem; color: #555; font-size: 0.9rem; }
+  .empty-state { text-align: center; padding: 3rem; color: #555; }
+  .count-info { font-size: 0.8rem; color: #555; padding: 0 1.5rem; max-width: 900px; margin: 0 auto 0.5rem; }
+  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: #1e1e28; border: 1px solid #7c6ff7; color: #fff; font-size: 0.85rem; padding: 0.6rem 1.2rem; border-radius: 10px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 99; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CAM/<span>HOP</span></div>
+  <div style="font-size:0.8rem;color:#555;"><span class="status-dot"></span>live</div>
+</header>
+
+<div class="hero">
+  <h1>Server Hop</h1>
+  <p class="subtitle">Catch a Monster · เลือก server ที่มีคนน้อยเพื่อ farm boss ได้ง่ายขึ้น</p>
+</div>
+
+<div class="boss-box">
+  <div>
+    <div class="boss-label" id="phase-label-top">⏱ รอ boss spawn</div>
+    <div class="boss-timer timer-waiting" id="timer">00:00</div>
+    <div class="phase-bar-wrap">
+      <div class="phase-bar-bg">
+        <div class="phase-bar-fill" id="phase-bar" style="width:0%;background:#7c6ff7;"></div>
+      </div>
+      <div class="phase-label" id="phase-desc">รอ boss เกิด</div>
+    </div>
+    <div class="auto-hop-row">
+      <label class="toggle">
+        <input type="checkbox" id="auto-hop-toggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <div>
+        <div class="auto-hop-label">auto-hop — <span class="auto-hop-status" id="auto-status" style="color:#7c6ff7;">ปิด</span></div>
+        <div class="next-hop-row" id="next-hop-info">วาปทุก 15 วิในช่วง 5 นาทีแรกหลัง boss spawn</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+    <div style="text-align:right;">
+      <div class="boss-label">รอบหน้า</div>
+      <div id="next-spawns" style="font-size:0.85rem;color:#aaa;">—</div>
+    </div>
+    <button class="random-btn" onclick="randomJoin()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/>
+      </svg>
+      RANDOM JOIN →
+    </button>
+    <span class="visited-badge" id="visited-count"></span>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="filter-btn active" onclick="setFilter('ALL',this)">ทั้งหมด</button>
+  <button class="filter-btn" onclick="setFilter('EMPTY',this)">ว่าง</button>
+  <button class="filter-btn" onclick="setFilter('OPEN',this)">เปิด</button>
+  <button class="filter-btn" onclick="setFilter('BUSY',this)">ยุ่ง</button>
+  <button class="filter-btn" onclick="setFilter('FULL',this)">เต็ม</button>
+  <button class="sort-btn" id="sort-btn" onclick="toggleSort()">↑ คนน้อย→มาก</button>
+  <button class="refresh-btn" onclick="loadServers()">⟳ รีเฟรช</button>
+</div>
+
+<div class="count-info" id="count-info"></div>
+<div class="server-list" id="server-list"><div class="loading">กำลังโหลด server...</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const PLACE_ID    = "98664161516921";
+  const MAX_PLAYERS = 12;
+  const WORKER_URL = "https://ballmaza0.ballmaza0.workers.dev";
+
+  const BOSS_CYCLE   = 15 * 60;   // 900 วิ
+  const HUNT_WINDOW  = 5  * 60;   // 300 วิ
+  const HOP_MS       = 15 * 1000; // 15,000 ms — ใช้ Date.now() จับเวลาจริง
+
+  let allServers    = [];
+  let currentFilter = "ALL";
+  let sortAsc       = true;
+  let refreshInterval;
+  let visitedIds    = new Set();
+  let autoHopOn     = false;
+  let inHuntPhase   = false;
+  let lastHopTime   = 0;   // timestamp ที่วาปครั้งล่าสุด (ms)
+
+  // ===== Toggle =====
+  document.getElementById("auto-hop-toggle").addEventListener("change", function() {
+    autoHopOn = this.checked;
+    document.getElementById("auto-status").textContent  = autoHopOn ? "เปิด" : "ปิด";
+    document.getElementById("auto-status").style.color  = autoHopOn ? "#4ade80" : "#7c6ff7";
+    if (autoHopOn && inHuntPhase) lastHopTime = Date.now(); // reset จับเวลาใหม่
+    showToast(autoHopOn ? "Auto-hop เปิดแล้ว" : "Auto-hop ปิดแล้ว");
+  });
+
+  // ===== Random Join =====
+  async function randomJoin() {
+    let pool = allServers.filter(s => !visitedIds.has(s.id) && getStatus(s.playing, s.maxPlayers || MAX_PLAYERS) !== "FULL");
+    if (!pool.length) {
+      visitedIds.clear();
+      updateVisitedCount();
+      renderServers();
+      pool = allServers.filter(s => getStatus(s.playing, s.maxPlayers || MAX_PLAYERS) !== "FULL");
+    }
+    // ถ้ายังว่างอยู่ให้โหลด server ใหม่ก่อนแล้วค่อยวาป
+    if (!pool.length) {
+      showToast("โหลด server ใหม่...", true);
+      await loadServers();
+      pool = allServers.filter(s => getStatus(s.playing, s.maxPlayers || MAX_PLAYERS) !== "FULL");
+      if (!pool.length) { showToast("ไม่พบ server ว่าง", true); return; }
+    }
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    joinServer(pick.id);
+    visitedIds.add(pick.id);
+    updateVisitedCount();
+    renderServers();
+  }
+
+  function updateVisitedCount() {
+    document.getElementById("visited-count").textContent = visitedIds.size > 0 ? `เคยเข้าแล้ว ${visitedIds.size} server` : "";
+  }
+
+  // ===== Load Servers =====
+  async function loadServers(retries = 3) {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const res  = await fetch(`${WORKER_URL}?placeId=${PLACE_ID}`);
+        const data = await res.json();
+        const servers = data.data || [];
+        if (servers.length > 0) {
+          allServers = servers;
+          renderServers();
+          scheduleRefresh();
+          return;
+        }
+        // ได้ข้อมูลเปล่า — รอแล้วลองใหม่
+        if (i < retries - 1) await new Promise(r => setTimeout(r, 2000));
+      } catch(e) {
+        if (i < retries - 1) await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    // ลองครบแล้วยังไม่ได้ — เก็บข้อมูลเก่าไว้ก่อน ไม่ล้างหน้าจอ
+    if (allServers.length === 0) {
+      document.getElementById("server-list").innerHTML = '<div class="loading">โหลดไม่ได้ — ลองรีเฟรชใหม่</div>';
+    }
+    scheduleRefresh();
+  }
+  function scheduleRefresh() {
+    clearInterval(refreshInterval);
+    refreshInterval = setInterval(loadServers, 30000);
+  }
+
+  // ===== Render =====
+  function renderServers() {
+    let list = [...allServers].filter(s => currentFilter === "ALL" || getStatus(s.playing, s.maxPlayers||MAX_PLAYERS) === currentFilter);
+    list.sort((a,b) => sortAsc ? a.playing-b.playing : b.playing-a.playing);
+    document.getElementById("count-info").textContent = `แสดง ${list.length} จาก ${allServers.length} server`;
+    if (!list.length) { document.getElementById("server-list").innerHTML='<div class="empty-state">ไม่พบ server</div>'; return; }
+    document.getElementById("server-list").innerHTML = list.map((s,i)=>{
+      const max=s.maxPlayers||MAX_PLAYERS, pct=Math.round((s.playing/max)*100);
+      const st=getStatus(s.playing,max);
+      const bc={EMPTY:"bar-empty",OPEN:"bar-open",BUSY:"bar-busy",FULL:"bar-full"}[st];
+      const bdc={EMPTY:"badge-empty",OPEN:"badge-open",BUSY:"badge-busy",FULL:"badge-full"}[st];
+      const bt={EMPTY:"ว่าง",OPEN:"เปิด",BUSY:"ยุ่ง",FULL:"เต็ม"}[st];
+      const vis=visitedIds.has(s.id);
+      return `<div class="server-row${vis?" visited":""}">
+        <span style="font-size:.75rem;color:#444;min-width:24px;">${i+1}</span>
+        <div class="server-bar-wrap"><div class="server-bar-bg"><div class="server-bar-fill ${bc}" style="width:${pct}%"></div></div></div>
+        <div class="server-count"><strong>${s.playing}</strong>/${max}</div>
+        <span class="badge ${bdc}">${bt}</span>
+        ${vis?'<span class="visited-tag">เคยเข้า</span>':''}
+        <button class="join-btn" onclick="manualJoin('${s.id}')">เข้าร่วม</button>
+      </div>`;
+    }).join("");
+  }
+
+  function getStatus(p,m){ if(p===0)return"EMPTY"; if(p/m<0.5)return"OPEN"; if(p/m<0.9)return"BUSY"; return"FULL"; }
+  function joinServer(id){ const a=document.createElement('a');a.href=`roblox://experiences/start?placeId=${PLACE_ID}&gameInstanceId=${id}`;document.body.appendChild(a);a.click();document.body.removeChild(a); }
+  function manualJoin(id){ visitedIds.add(id); lastHopTime=Date.now(); updateVisitedCount(); joinServer(id); setTimeout(renderServers,100); }
+  function setFilter(f,btn){ currentFilter=f; document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); renderServers(); }
+  function toggleSort(){ sortAsc=!sortAsc; document.getElementById("sort-btn").textContent=sortAsc?"↑ คนน้อย→มาก":"↓ คนมาก→น้อย"; renderServers(); }
+  function showToast(msg,warn){ const t=document.getElementById("toast"); t.textContent=msg; t.style.borderColor=warn?"#f59e0b":"#7c6ff7"; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
+
+  // ===== Main loop (ทุก 250ms — แม่นยำกว่า 1000ms) =====
+  function tick() {
+    const now        = new Date();
+    const utcSec     = now.getUTCHours()*3600 + now.getUTCMinutes()*60 + now.getUTCSeconds();
+    const secInCycle = utcSec % BOSS_CYCLE;
+
+    const timerEl  = document.getElementById("timer");
+    const barEl    = document.getElementById("phase-bar");
+    const descEl   = document.getElementById("phase-desc");
+    const topLabel = document.getElementById("phase-label-top");
+    const nextHopEl= document.getElementById("next-hop-info");
+
+    if (secInCycle < HUNT_WINDOW) {
+      // ---- HUNT phase ----
+      const remaining = HUNT_WINDOW - secInCycle;
+      const mm = String(Math.floor(remaining/60)).padStart(2,"0");
+      const ss = String(remaining%60).padStart(2,"0");
+      timerEl.textContent = `${mm}:${ss}`;
+      timerEl.className   = "boss-timer timer-hunting";
+      topLabel.textContent= "⚡ boss มีชีวิต";
+      barEl.style.width   = `${Math.round((remaining/HUNT_WINDOW)*100)}%`;
+      barEl.style.background = "#4ade80";
+      descEl.textContent  = `boss หายใน ${mm}:${ss}`;
+      descEl.className    = "phase-label phase-hunting";
+
+      if (!inHuntPhase) {
+        inHuntPhase = true;
+        lastHopTime = -1; // -1 = ยังไม่เคยวาปรอบนี้
+        visitedIds.clear();
+        updateVisitedCount();
+        renderServers();
+        showToast("⚡ Boss spawn! เริ่ม auto-hop");
+      }
+
+      if (autoHopOn) {
+        // ใช้ UTC slot แทน elapsed — ไม่สะดุดแม้ tab ไม่ได้ focus
+        const HOP_SEC = HOP_MS / 1000;
+        const hopSlot = Math.floor(secInCycle / HOP_SEC); // slot ปัจจุบัน
+        const tillNext = HOP_SEC - (secInCycle % HOP_SEC);
+        if (hopSlot !== lastHopTime) {
+          lastHopTime = hopSlot; // เก็บ slot ล่าสุดที่วาปแล้ว
+          randomJoin();
+        }
+        nextHopEl.textContent = `วาปถัดไปใน ${Math.ceil(tillNext)} วิ · boss หายใน ${mm}:${ss}`;
+      } else {
+        nextHopEl.textContent = "เปิด auto-hop เพื่อวาปอัตโนมัติ";
+      }
+
+    } else {
+      // ---- WAIT phase ----
+      const remaining = BOSS_CYCLE - secInCycle;
+      const mm = String(Math.floor(remaining/60)).padStart(2,"0");
+      const ss = String(remaining%60).padStart(2,"0");
+      timerEl.textContent = `${mm}:${ss}`;
+      timerEl.className   = "boss-timer timer-waiting";
+      topLabel.textContent= "⏳ รอ boss spawn";
+      barEl.style.width   = `${Math.round((remaining/(BOSS_CYCLE-HUNT_WINDOW))*100)}%`;
+      barEl.style.background = "#7c6ff7";
+      descEl.textContent  = `boss เกิดใน ${mm}:${ss}`;
+      descEl.className    = "phase-label phase-waiting";
+      nextHopEl.textContent = "auto-hop จะเริ่มเมื่อ boss spawn";
+      inHuntPhase = false;
+    }
+
+    // รอบถัดๆ ไป
+    const secsToNext = BOSS_CYCLE - secInCycle;
+    const nexts = [];
+    for (let i=0;i<3;i++) {
+      const fu = utcSec + secsToNext + i*BOSS_CYCLE;
+      const fh = Math.floor(fu/3600)%24, fm = Math.floor((fu%3600)/60);
+      nexts.push(fm===0 ? `<strong style="color:#fff">${String(fh).padStart(2,"0")}:00 ★</strong>` : `${String(fh).padStart(2,"0")}:${String(fm).padStart(2,"0")}`);
+    }
+    document.getElementById("next-spawns").innerHTML = nexts.join(" · ");
+  }
+
+  // ใช้ Web Worker เพื่อป้องกัน Chrome throttle ตอน tab ไม่ได้ focus
+  const workerBlob = new Blob(["setInterval(()=>postMessage('tick'),250);"], { type: "application/javascript" });
+  const worker = new Worker(URL.createObjectURL(workerBlob));
+  worker.onmessage = () => tick();
+
+  // พอกลับมา focus tab ให้ tick ทันทีเลย
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tick();
+  });
+
+  loadServers();
+</script>
+</body>
+</html>
