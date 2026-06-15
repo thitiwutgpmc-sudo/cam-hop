@@ -197,17 +197,35 @@
     document.getElementById("visited-count").textContent = visitedIds.size > 0 ? `เคยเข้าแล้ว ${visitedIds.size} server` : "";
   }
 
-  // ── Load Servers ──────────────────────────────────────────────────────
+  // ── Load Servers (มี retry อัตโนมัติ) ───────────────────────────────
+  let retryCount = 0;
   async function loadServers() {
     try {
-      const res = await fetch(`${WORKER_URL}?placeId=${PLACE_ID}`);
+      const res  = await fetch(`${WORKER_URL}?placeId=${PLACE_ID}&_=${Date.now()}`);
       const data = await res.json();
-      allServers = data.data || [];
+      const servers = data.data || [];
+
+      if (servers.length === 0 && retryCount < 3) {
+        // ได้ 0 server — รอ 3 วิแล้วลองใหม่
+        retryCount++;
+        document.getElementById("count-info").textContent = `โหลดใหม่... (ครั้งที่ ${retryCount})`;
+        setTimeout(loadServers, 3000);
+        return;
+      }
+
+      retryCount = 0;
+      allServers = servers;
       renderServers();
       clearInterval(refreshInterval);
       refreshInterval = setInterval(loadServers, 30000);
     } catch(e) {
-      document.getElementById("server-list").innerHTML = '<div class="loading">โหลดไม่ได้ — ตรวจสอบ WORKER_URL</div>';
+      if (retryCount < 3) {
+        retryCount++;
+        setTimeout(loadServers, 3000);
+      } else {
+        document.getElementById("server-list").innerHTML = '<div class="loading">โหลดไม่ได้ — ลองรีเฟรชหน้าเว็บครับ</div>';
+        retryCount = 0;
+      }
     }
   }
 
