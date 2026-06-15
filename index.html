@@ -174,7 +174,7 @@
     showToast(autoHopOn ? "Auto-hop เปิดแล้ว" : "Auto-hop ปิดแล้ว");
   });
 
-  // ── Random Join ───────────────────────────────────────────────────────
+  // ── Random Join (เลือกปิงน้อยใน top 10 แล้วสุ่ม) ────────────────────
   function randomJoin() {
     let pool = allServers.filter(s => !visitedIds.has(s.id) && getStatus(s.playing, s.maxPlayers||MAX_PLAYERS) !== "FULL");
     if (!pool.length) {
@@ -182,7 +182,10 @@
       pool = allServers.filter(s => getStatus(s.playing, s.maxPlayers||MAX_PLAYERS) !== "FULL");
       if (!pool.length) return;
     }
-    const pick = pool[Math.floor(Math.random() * pool.length)];
+    // เรียงปิงน้อย→มาก แล้วสุ่มใน 10 อันดับแรก
+    pool.sort((a,b) => (a.ping||9999) - (b.ping||9999));
+    const top = pool.slice(0, 10);
+    const pick = top[Math.floor(Math.random() * top.length)];
     joinServer(pick.id);
     visitedIds.add(pick.id);
     lastHopAt = Math.floor(Date.now() / 1000);
@@ -209,9 +212,18 @@
   }
 
   // ── Render ────────────────────────────────────────────────────────────
+  function getPingColor(ping) {
+    if (!ping) return "#555";
+    if (ping < 80)  return "#4ade80";
+    if (ping < 150) return "#f59e0b";
+    return "#f87171";
+  }
+
   function renderServers() {
     let list = [...allServers].filter(s => currentFilter==="ALL" || getStatus(s.playing,s.maxPlayers||MAX_PLAYERS)===currentFilter);
-    list.sort((a,b) => sortAsc ? a.playing-b.playing : b.playing-a.playing);
+    // sort ปิงน้อย→มากอัตโนมัติ (sortAsc toggle ยังใช้ได้สำหรับคนในห้อง)
+    if (sortAsc) list.sort((a,b) => (a.ping||9999)-(b.ping||9999));
+    else list.sort((a,b) => b.playing-a.playing);
     document.getElementById("count-info").textContent = `แสดง ${list.length} จาก ${allServers.length} server`;
     if (!list.length) { document.getElementById("server-list").innerHTML='<div class="empty-state">ไม่พบ server</div>'; return; }
     document.getElementById("server-list").innerHTML = list.map((s,i) => {
@@ -220,10 +232,14 @@
       const bc={EMPTY:"bar-empty",OPEN:"bar-open",BUSY:"bar-busy",FULL:"bar-full"}[st];
       const bdc={EMPTY:"badge-empty",OPEN:"badge-open",BUSY:"badge-busy",FULL:"badge-full"}[st];
       const bt={EMPTY:"ว่าง",OPEN:"เปิด",BUSY:"ยุ่ง",FULL:"เต็ม"}[st];
+      const ping=s.ping||null;
+      const pingColor=getPingColor(ping);
+      const pingTx=ping?ping+"ms":"—";
       return `<div class="server-row${vis?" visited":""}">
         <span style="font-size:.75rem;color:#444;min-width:24px;">${i+1}</span>
         <div class="server-bar-wrap"><div class="server-bar-bg"><div class="server-bar-fill ${bc}" style="width:${pct}%"></div></div></div>
         <div class="server-count"><strong>${s.playing}</strong>/${max}</div>
+        <span style="font-size:0.78rem;font-weight:500;color:${pingColor};min-width:42px;text-align:right;">${pingTx}</span>
         <span class="badge ${bdc}">${bt}</span>
         ${vis?'<span class="visited-tag">เคยเข้า</span>':''}
         <button class="join-btn" onclick="manualJoin('${s.id}')">เข้าร่วม</button>
@@ -235,7 +251,7 @@
   function joinServer(id){ const a=document.createElement("a"); a.href=`roblox://experiences/start?placeId=${PLACE_ID}&gameInstanceId=${id}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); }
   function manualJoin(id){ visitedIds.add(id); lastHopAt=Math.floor(Date.now()/1000); updateVisitedCount(); joinServer(id); setTimeout(renderServers,100); }
   function setFilter(f,btn){ currentFilter=f; document.querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); renderServers(); }
-  function toggleSort(){ sortAsc=!sortAsc; document.getElementById("sort-btn").textContent=sortAsc?"↑ คนน้อย→มาก":"↓ คนมาก→น้อย"; renderServers(); }
+  function toggleSort(){ sortAsc=!sortAsc; document.getElementById("sort-btn").textContent=sortAsc?"↑ ปิงน้อย→มาก":"↓ คนมาก→น้อย"; renderServers(); }
   function showToast(msg,warn){ const t=document.getElementById("toast"); t.textContent=msg; t.style.borderColor=warn?"#f59e0b":"#7c6ff7"; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2500); }
 
   // ── Main tick (เรียกจาก Web Worker — ไม่โดน throttle) ────────────────
